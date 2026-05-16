@@ -1,5 +1,7 @@
 name: Build unsigned iOS WDA package
 
+# Touch this workflow file when GitHub Actions inventory needs to re-register the default-branch workflow.
+
 on:
   workflow_dispatch:
     inputs:
