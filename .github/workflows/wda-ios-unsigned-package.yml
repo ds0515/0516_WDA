@@ -1,0 +1,180 @@
+name: Build unsigned iOS WDA package
+
+on:
+  workflow_dispatch:
+    inputs:
+      xcode_version:
+        description: Xcode version used to build WebDriverAgent
+        default: "16.4"
+        required: true
+        type: string
+      package_kind:
+        description: Package kind to build
+        default: "native_host"
+        required: true
+        type: choice
+        options:
+          - runner
+          - native_host
+          - both
+      runner_labels_json:
+        description: 'JSON string or array for runs-on. Default uses self-hosted to avoid hosted-runner billing blocks; hosted override: "macos-15"'
+        default: '["self-hosted","macOS","X64","wda-macos-self-hosted"]'
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_unsigned_ios_wda:
+    name: Build unsigned iOS WDA package
+    runs-on: ${{ fromJSON(inputs.runner_labels_json) }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ inputs.xcode_version }}
+
+      - name: Verify macOS runner prerequisites
+        run: |
+          set -euo pipefail
+          uname -a
+          xcode-select -p
+          command -v xcodebuild
+          xcodebuild -version
+          xcodebuild -showsdks | grep -q "iphoneos"
+          command -v bash
+          command -v grep
+          command -v mktemp
+          command -v python3
+          python3 --version
+          command -v zip
+          command -v unzip
+          test -x /usr/libexec/PlistBuddy
+
+      - name: Build unsigned WDA app and IPA
+        if: ${{ inputs.package_kind == 'runner' || inputs.package_kind == 'both' }}
+        run: bash "$GITHUB_WORKSPACE/Scripts/ci/build-real-ios-unsigned.sh"
+        env:
+          DERIVED_DATA_PATH: appium_wda_ios
+          SCHEME: WebDriverAgentRunner
+          DESTINATION: generic/platform=iOS
+          ZIP_PKG_NAME: WebDriverAgentRunner-Runner.app.zip
+          IPA_PKG_NAME: WebDriverAgentRunner-Runner.unsigned.ipa
+          FULL_ZIP_PKG_NAME: WebDriverAgentRunner-Runner.full.app.zip
+          FULL_IPA_PKG_NAME: WebDriverAgentRunner-Runner.full.unsigned.ipa
+          RUNNER_APP_BUNDLE_ID: app.honey4212.crystal5671.xctrunner
+          RUNNER_XCTEST_BUNDLE_ID: app.honey4212.crystal5671
+
+      - name: Verify package contents
+        if: ${{ inputs.package_kind == 'runner' || inputs.package_kind == 'both' }}
+        run: |
+          set -euo pipefail
+          unzip -l WebDriverAgentRunner-Runner.unsigned.ipa | grep -q "Payload/WebDriverAgentRunner-Runner.app/"
+          unzip -l WebDriverAgentRunner-Runner.full.unsigned.ipa | grep -q "Payload/WebDriverAgentRunner-Runner.app/"
+          ! unzip -l WebDriverAgentRunner-Runner.unsigned.ipa | grep -E "Payload/WebDriverAgentRunner-Runner.app/Frameworks/(XC.*\.framework|Testing\.framework|libXCTestSwiftSupport\.dylib)"
+          ! unzip -l WebDriverAgentRunner-Runner.app.zip | grep -E "WebDriverAgentRunner-Runner.app/Frameworks/(XC.*\.framework|Testing\.framework|libXCTestSwiftSupport\.dylib)"
+          unzip -l WebDriverAgentRunner-Runner.full.unsigned.ipa | grep -E "Payload/WebDriverAgentRunner-Runner.app/Frameworks/(XC.*\.framework|Testing\.framework|libXCTestSwiftSupport\.dylib)"
+
+      - name: Upload stripped unsigned WDA app zip
+        if: ${{ inputs.package_kind == 'runner' || inputs.package_kind == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner-Runner-app-zip
+          path: WebDriverAgentRunner-Runner.app.zip
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload stripped unsigned WDA IPA
+        if: ${{ inputs.package_kind == 'runner' || inputs.package_kind == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner-Runner-unsigned-ipa
+          path: WebDriverAgentRunner-Runner.unsigned.ipa
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload full unsigned WDA app zip
+        if: ${{ inputs.package_kind == 'runner' || inputs.package_kind == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner-Runner-full-app-zip
+          path: WebDriverAgentRunner-Runner.full.app.zip
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload full unsigned WDA IPA
+        if: ${{ inputs.package_kind == 'runner' || inputs.package_kind == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner-Runner-full-unsigned-ipa
+          path: WebDriverAgentRunner-Runner.full.unsigned.ipa
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Build unsigned native WDA host app and IPA
+        if: ${{ inputs.package_kind == 'native_host' || inputs.package_kind == 'both' }}
+        run: bash "$GITHUB_WORKSPACE/Scripts/ci/build-native-ios-host.sh"
+        env:
+          DERIVED_DATA_PATH: lobster_wda_host_ios
+          SCHEME: LobsterWDAHost
+          DESTINATION: generic/platform=iOS
+          ZIP_PKG_NAME: LobsterWDAHost.app.zip
+          IPA_PKG_NAME: LobsterWDAHost.unsigned.ipa
+          EXPECTED_BUNDLE_ID: app.honey4212.crystal5671
+
+      - name: Verify native host package contents
+        if: ${{ inputs.package_kind == 'native_host' || inputs.package_kind == 'both' }}
+        run: |
+          set -euo pipefail
+          unzip -l LobsterWDAHost.unsigned.ipa | grep -q "Payload/LobsterWDAHost.app/"
+          unzip -l LobsterWDAHost.unsigned.ipa | grep -q "Payload/LobsterWDAHost.app/Frameworks/WebDriverAgentLib.framework/"
+          ! unzip -l LobsterWDAHost.unsigned.ipa | grep -E "Payload/LobsterWDAHost.app/PlugIns/.*\.xctest"
+          verify_dir="$(mktemp -d)"
+          trap 'rm -rf "$verify_dir"' EXIT
+          unzip -q LobsterWDAHost.unsigned.ipa -d "$verify_dir"
+          if ! grep -R -a -q "/wda/network" "$verify_dir/Payload/LobsterWDAHost.app"; then
+            echo "Native host IPA is missing /wda/network diagnostic route"
+            exit 1
+          fi
+          for required_route in "/proxy/status" "/proxy/screenshot" "/proxy/source"; do
+            if ! grep -R -a -q "$required_route" "$verify_dir/Payload/LobsterWDAHost.app"; then
+              echo "Native host IPA is missing $required_route proxy route"
+              exit 1
+            fi
+          done
+          for required_gate in \
+            "Verify-Native-Host-Ipa-Local-Network-Plist" \
+            "NSLocalNetworkUsageDescription" \
+            "NSBonjourServices" \
+            "_wda._tcp"; do
+            if ! grep -q "$required_gate" "$GITHUB_WORKSPACE/Scripts/ci/build-native-ios-host.sh"; then
+              echo "Native host build script is missing $required_gate wireless plist gate"
+              exit 1
+            fi
+          done
+
+      - name: Upload unsigned native host app zip
+        if: ${{ inputs.package_kind == 'native_host' || inputs.package_kind == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LobsterWDAHost-app-zip
+          path: LobsterWDAHost.app.zip
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload unsigned native host IPA
+        if: ${{ inputs.package_kind == 'native_host' || inputs.package_kind == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LobsterWDAHost-unsigned-ipa
+          path: LobsterWDAHost.unsigned.ipa
+          if-no-files-found: error
+          retention-days: 1
