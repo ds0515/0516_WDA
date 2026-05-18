@@ -83,12 +83,12 @@
   server.delegate = self;
 
   @synchronized (self) {
-    if (self.isWebServerRunning) {
-      [self updateViewWithMessage:@"Already running"];
+    if (self.webServer != nil) {
+      [self updateViewWithMessage:self.isWebServerRunning ? @"Already running" : @"Already starting"];
       return;
     }
 
-    self.webServerRunning = YES;
+    self.webServerRunning = NO;
     self.webServer = server;
   }
 
@@ -99,7 +99,6 @@
         return;
       }
     }
-    [self updateViewWithMessage:@"Running"];
     [server startServing];
     @synchronized (self) {
       if (self.webServer == server) {
@@ -160,6 +159,17 @@
 }
 
 #pragma mark - FBWebServerDelegate
+
+- (void)webServerDidStartServing:(FBWebServer *)webServer
+{
+  @synchronized (self) {
+    if (self.webServer != webServer) {
+      return;
+    }
+    self.webServerRunning = YES;
+  }
+  [self updateViewWithMessage:@"Running"];
+}
 
 - (void)webServerDidRequestShutdown:(FBWebServer *)webServer
 {

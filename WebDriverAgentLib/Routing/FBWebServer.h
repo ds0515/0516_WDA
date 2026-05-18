@@ -40,6 +40,17 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @protocol FBWebServerDelegate <NSObject>
 
+@optional
+
+/**
+ The server finished starting and is accepting HTTP connections.
+
+ @param webServer Server instance.
+ */
+- (void)webServerDidStartServing:(FBWebServer *)webServer;
+
+@required
+
 /**
  The server requested WebDriverAgent service shutdown.
 

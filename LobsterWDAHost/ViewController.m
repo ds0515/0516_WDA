@@ -79,7 +79,11 @@ static NSString *const LobsterWDAHostPort = @"8100";
 
 - (void)updateServiceRunning:(BOOL)running message:(NSString *)message
 {
-  self.statusLabel.text = [NSString stringWithFormat:@"Status: %@", running ? @"Running" : @"Stopped"];
+  NSString *status = running ? @"Running" : @"Stopped";
+  if ([message isEqualToString:@"Starting"] || [message isEqualToString:@"Already starting"]) {
+    status = @"Starting";
+  }
+  self.statusLabel.text = [NSString stringWithFormat:@"Status: %@", status];
   self.addressLabel.text = [self.class serviceURLText];
   self.messageLabel.text = message;
 }

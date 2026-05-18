@@ -87,6 +87,9 @@ static NSTimeInterval const FBLocalWDAProxyTimeout = 10.0;
   [FBLogger logFmt:@"Built at %s %s", __DATE__, __TIME__];
   self.exceptionHandler = [FBExceptionHandler new];
   [self startHTTPServer];
+  if ([self.delegate respondsToSelector:@selector(webServerDidStartServing:)]) {
+    [self.delegate webServerDidStartServing:self];
+  }
   [self initScreenshotsBroadcaster];
 
   self.keepAlive = YES;
