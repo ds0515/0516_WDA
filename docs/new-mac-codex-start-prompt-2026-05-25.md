@@ -77,6 +77,12 @@ Windows 历史材料位置，仅用于理解迁移来源，不要在 Mac 仓库�
 Mac 上如果需要放置材料，使用仓库外的私有目录，例如：
 - ~/secure-wda-materials/
 
+签名材料迁移规则：
+- 不要把 cert.p12、任何 .p12、任何 .mobileprovision、p12 密码、Apple ID 密码或 github.txt 上传到 GitHub 仓库。
+- 不要通过普通 Git commit、GitHub blob、release asset、issue/comment、wiki、gist 或 Actions artifact 存放这些材料。
+- 当前新 Mac 迁移方式是：用户手动把签名材料放到仓库外的私有目录，例如 ~/secure-wda-materials/，Codex 只在明确需要签名或只读检查时引用路径。
+- 如果后续明确要求“云端签名”，必须先单独做安全方案评审；只能讨论 GitHub Actions Encrypted Secrets 这类受控入口，不得把 p12/mobileprovision 当作仓库文件上传。
+
 安全硬性约束：
 - 默认中文回复。
 - 不得存储、打印、提交 GitHub token、Apple ID 密码、p12 私钥内容、p12 密码、完整 mobileprovision 内容或敏感日志。
@@ -163,4 +169,3 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./Scripts/continue-native-wda-goal
 本次新 Mac 的第一目标：
 不要改 GitHub，不要进入 Phase 3。先用 Mac/Xcode 解决 Development signing material 和目标 iPhone 可见性，然后只读复查 signing gate。
 ```
-
