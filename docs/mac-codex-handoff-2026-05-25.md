@@ -78,7 +78,8 @@ Windows 本地仓库：
 - URL: `https://github.com/ds0515/0516_WDA`
 - 目标分支：`lobster-wda-cloud-resign`
 - 2026-05-18 通过 GitHub API 同步过候选源码。
-- 最新已知远端 commit：`7440401e570cfc5acaaaffd7a17fc026232c4fe5`
+- 最新已验证云构建的远端代码基线 commit：`7440401e570cfc5acaaaffd7a17fc026232c4fe5`
+- 本交接文档单独发布到远端后，远端 HEAD 可能晚于上述代码基线；不要仅因 HEAD 晚于 `7440401e...` 就误判为源码不同步。
 
 新 Mac 建议从远端迁移：
 
@@ -341,4 +342,3 @@ GitHub 云端编译问题已经解决；当前真正阻塞是 Mac/Xcode 侧 Deve
 4. 为 native host 与 runner 生成或导入 Apple Development signing materials。
 5. 先跑 signing 只读复查。
 6. 再进入安装和 WDA `/status`、`/screenshot`、`/source` 验证。
-
